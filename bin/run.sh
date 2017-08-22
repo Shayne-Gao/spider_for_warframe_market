@@ -1,4 +1,5 @@
-rm -f ../output/*
+#rm -f ../output/*
 ls_date=`date +%Y%m%d`
-scrapy crawl wm_spider -o ../output/${ls_date}.csv
-sz ../output/${ls_date}.csv 
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+nohup scrapy crawl wm_spider -o ${DIR}/../output/${ls_date}.csv -s LOG_FILE=${DIR}/../log/${ls_date}.log 
+#sz ../output/${ls_date}.csv 
