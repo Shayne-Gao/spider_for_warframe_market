@@ -32,7 +32,7 @@ class WmSpider(scrapy.Spider):
         path = os.path.split(os.path.realpath(__file__))[0] + '/../../conf/wm.cfg'
         conf.read(path)
       
-        cates = ["Set","Blueprint"]
+        cates = conf.sections()
         for cate in cates:
             items = conf.options(cate) 
             for item in items:
