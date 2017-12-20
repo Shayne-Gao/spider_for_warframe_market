@@ -10,6 +10,7 @@ import os
 import urllib
 import time
 import MySQLdb
+import cgi
 
 #rewrite conf class to avoid lower()
 class myconf(ConfigParser.ConfigParser):  
@@ -18,9 +19,9 @@ class myconf(ConfigParser.ConfigParser):
     def optionxform(self, optionstr):  
         return optionstr  
 
-#从warframe-build中获取build信息，mod装配，然后放入数据库中
+#从huijiwiki抓取mod的图片url放入数据库
 class WmSpider(scrapy.Spider):
-    name = "buildload"
+    name = "itemimg"
     itemName = "";
 
     db = None
@@ -36,14 +37,16 @@ class WmSpider(scrapy.Spider):
         self.db = MySQLdb.connect("localhost","root","IWLX8IS12Rl","warframe",charset='utf8' )
         self.cursor = self.db.cursor()
         
-        baseUrls =[ "http://warframe-builder.com/Primary_Weapons/Builder/Lenz","http://warframe-builder.com/Secondary_Weapons/Builder/Akjagara","http://warframe-builder.com/Melee_Weapons/Builder/Cronus"]
-        for url in baseUrls:
+        itemNames = self.getInfoFromDb()
+        for item in itemNames:
+            url = "http://warframe.huijiwiki.com/wiki/"+item['name_zh']+"?"+str(item['id'])
             print url
-            yield scrapy.Request(url=url, callback=self.parse_mod_map)
+            yield scrapy.Request(url=url, callback=self.parse)
         
 
-    def getInfoFromDb(self,itemName):
-        sql = """SELECT id,name_en,type from item where name_zh like '%%%s%%' or name_en like '%%%s%%' """ %(itemName,itemName)
+    def getInfoFromDb(self):
+        sql = """SELECT id,name_zh from item where type="Mod" """
+        #sql = """SELECT id,name_zh FROM item WHERE TYPE='Void Trader' AND name_zh LIKE '%Prime'"""
           # 执行SQL语句
         self.cursor.execute(sql)
         # 获取所有记录列表
@@ -55,8 +58,8 @@ class WmSpider(scrapy.Spider):
         for r in results:
             temp = {}
             temp['id']=r[0]
-            temp['name_en']=r[1]
-            temp['type']=r[2]
+            temp['name_zh']=r[1]
+            
             resList.append(temp)
         return resList
 
@@ -64,6 +67,18 @@ class WmSpider(scrapy.Spider):
 
     def insertDB(self,name,type,buildId):
         sql = """INSERT INTO build_item (name_en,item_type,build_id) VALUES ('%s',%s,'%s') """%(name,type,buildId)
+        try:
+           # 执行sql语句
+           print sql
+           #self.cursor.execute(sql)
+           # 提交到数据库执行
+           self.db.commit()
+        except:
+           # Rollback in case there is any error
+           self.db.rollback()
+
+    def updateDB(self,itemId,imgpath):
+        sql = """UPDATE item SET item_img = '%s' WHERE id = '%s' """%(imgpath,itemId)
         try:
            # 执行sql语句
            print sql
@@ -81,14 +96,14 @@ class WmSpider(scrapy.Spider):
             name = rs.xpath('@data-nom').extract_first()
             print """'%s':'%s',"""%(id,name)
     def parse(self, response):
-        r= response.xpath("//*[@id='liste_armes']/option/@value").extract()
-        for rs in r:
-            t=rs.split('*')
-            if len(t)<2:
-                continue
-            id = t[1]
-            name = t[0].replace('_',' ').replace('prime','Prime')
-            self.insertDB(name,4,id)
+        r = response.xpath("//*[@id='mw-content-text']/table[1]/tr[2]/td/img/@src").extract_first()
+        if r == None:
+            r=response.xpath("//*[@id='mw-content-text']/table[2]/tr[2]/td/img/@src").extract_first()
+        itemName = response.url
+        url = str(response.url)
+        urlInfos = url.split('?')
+        itemId = urlInfos[-1]
+        self.updateDB(itemId,r)
         return None
 
     
