@@ -30,7 +30,7 @@ class WmSpider(scrapy.Spider):
     def recFormat(self,l):
         resStr = '%s:%sx%s|'%(l['ingame_name'],l['price'],l['count'])
         return resStr
-
+    #从cfg文件中读取需要爬的物品，然后从wm中爬取这个物品的价格，放入mysql
     def start_requests(self):
         self.db = MySQLdb.connect("localhost","root","IWLX8IS12Rl","warframe",charset='utf8' )
         self.cursor = self.db.cursor()
